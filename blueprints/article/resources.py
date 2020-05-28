@@ -8,10 +8,38 @@ from blueprints import db, app
 from sqlalchemy import desc
 from blueprints import internal_required
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, get_jwt_claims
-
+from blueprints.article_topic.model import ArticleTopics
+from blueprints.user.model import Users
 
 bp_article = Blueprint('article', __name__)
 api = Api(bp_article)
+
+class ArticlebyUser(Resource):
+    def options(self):
+        return {'status': 'ok'}, 200
+
+    @internal_required
+    def get (self):
+        parser = reqparse.RequestParser()
+        parser.add_argument("title", location='args')
+
+        claims = get_jwt_claims()
+        
+        args = parser.parse_args()
+        qry = Articles.query.filter_by(user_id=claims['id'])
+        qry = qry.order_by(desc(Articles.created_at))
+
+        if args['title'] is not None:
+            qry = qry.filter_by(name=args['title'])
+
+        rows = []
+        for row in qry.all():
+            user = Users.query.filter_by(id=row.user_id).first()
+            marshalUser = marshal(user, Users.response_fields)
+            marshalqry = marshal(row, Articles.response_fields)
+            marshalqry["user_id"] = marshalUser
+            rows.append(marshalqry)
+        return rows, 200
 
 class ArticleResources(Resource):
     def options(self):
@@ -26,15 +54,18 @@ class ArticleResources(Resource):
     @internal_required
     def post(self):
         claims = get_jwt_claims()
+        user_fields = Users.query.filter_by(id=claims['id']).first()
 
         parser = reqparse.RequestParser()
         parser.add_argument('title', location='form', required=True)
         parser.add_argument('text', location='form', required=True)
-        parser.add_argument('image', type=werkzeug.datastructures.FileStorage, location='files', required=True)
-        parser.add_argument('published', location='form')
-        parser.add_argument('popular', location='form')
-        parser.add_argument('top_article', location='form')
-        parser.add_argument('editors_pick', location='form')
+        parser.add_argument('image', type=werkzeug.datastructures.FileStorage, location='files')
+        parser.add_argument('image_caption', location='form')
+        parser.add_argument('topic', location='form', default="Hobbies")
+        parser.add_argument('published', location='form', type=bool)
+        parser.add_argument('popular', location='form', default=False, type=bool)
+        parser.add_argument('top_article', location='form', default=False, type=bool)
+        parser.add_argument('editors_pick', location='form', default=False, type=bool)
         
         args = parser.parse_args()
 
@@ -48,9 +79,17 @@ class ArticleResources(Resource):
                 image.save(os.path.join(UPLOAD_FOLDER, filename))
                 img_path = UPLOAD_FOLDER.replace('./', '/')+'/'+filename
      
-        article = Articles(args['title'],
-                           args['text'], 
+        article_topic = ArticleTopics.query.filter_by(topic = args['topic']).first()
+        if article_topic is None:
+            return {"message": "Topic is not found"}, 404, {'Content-Type': 'application/json'}
+     
+        article = Articles(user_fields.id,
+                           args['title'],
+                           args['text'],
+                        #    args['image'],
                            filename,
+                           args['image_caption'],
+                           article_topic.id,
                            args['published'],
                            args['popular'],
                            args['top_article'],
@@ -65,13 +104,15 @@ class ArticleResources(Resource):
     @internal_required
     def patch(self, id):
         parser = reqparse.RequestParser()
-        parser.add_argument('title', location='form', required=True)
-        parser.add_argument('text', location='form', required=True)
-        parser.add_argument('image', type=werkzeug.datastructures.FileStorage, location='files', required=True)
-        parser.add_argument('published', location='form')
-        parser.add_argument('popular', location='form')
-        parser.add_argument('top_article', location='form')
-        parser.add_argument('editors_pick', location='form')
+        parser.add_argument('title', location='form')
+        parser.add_argument('text', location='form')
+        parser.add_argument('image', type=werkzeug.datastructures.FileStorage, location='files')
+        parser.add_argument('image_caption', location='form')
+        parser.add_argument('topic', location='form')
+        parser.add_argument('published', location='form', type=bool)
+        parser.add_argument('popular', location='form', default=False, type=bool)
+        parser.add_argument('top_article', location='form', default=False, type=bool)
+        parser.add_argument('editors_pick', location='form', default=False, type=bool)
         
         args = parser.parse_args()
 
@@ -95,6 +136,14 @@ class ArticleResources(Resource):
                 img_path = UPLOAD_FOLDER.replace('./', '/')+'/'+filename
                 qry.image = filename
             
+        if args['image_caption'] is not None:
+            qry.image_caption = args['image_caption']
+        
+        if args['topic'] is not None:
+            article_topic = ArticleTopics.query.filter_by(topic = args['topic']).first()
+            if article_topic is not None:
+                qry.category = article_topic.id
+        
         if args['published'] is not None:
             qry.published = args['published']
             
@@ -149,7 +198,11 @@ class ArticleList(Resource):
             
         rows = []
         for row in qry.limit(args['rp']).offset(offset).all():
-            rows.append(marshal(row, Articles.response_fields))
+            user = Users.query.get(row.user_id)
+            marshalUser = marshal(user, Users.response_fields)
+            marshalqry = marshal(row, Articles.response_fields)
+            marshalqry["user"] = marshalUser
+            rows.append(marshalqry)
         
         return rows, 200
     
@@ -176,7 +229,11 @@ class PopularArticle(Resource):
             
         rows = []
         for row in qry.limit(args['rp']).offset(offset).all():
-            rows.append(marshal(row, Articles.response_fields))
+            user = Users.query.get(row.user_id)
+            marshalUser = marshal(user, Users.response_fields)
+            marshalqry = marshal(row, Articles.response_fields)
+            marshalqry["user"] = marshalUser
+            rows.append(marshalqry)
         return rows, 200
 
 
@@ -202,7 +259,11 @@ class TopArticle(Resource):
             
         rows = []
         for row in qry.limit(args['rp']).offset(offset).all():
-            rows.append(marshal(row, Articles.response_fields))
+            user = Users.query.get(row.user_id)
+            marshalUser = marshal(user, Users.response_fields)
+            marshalqry = marshal(row, Articles.response_fields)
+            marshalqry["user"] = marshalUser
+            rows.append(marshalqry)
         return rows, 200
     
     
@@ -228,12 +289,17 @@ class EditorsPickArticle(Resource):
             
         rows = []
         for row in qry.limit(args['rp']).offset(offset).all():
-            rows.append(marshal(row, Articles.response_fields))
+            user = Users.query.get(row.user_id)
+            marshalUser = marshal(user, Users.response_fields)
+            marshalqry = marshal(row, Articles.response_fields)
+            marshalqry["user"] = marshalUser
+            rows.append(marshalqry)
         return rows, 200
 
 
+api.add_resource(ArticlebyUser, '/user')
 api.add_resource(ArticleList, '', '/list')
 api.add_resource(ArticleResources, '', '/<id>')
 api.add_resource(PopularArticle, '/popular')
-api.add_resource(TopArticle, '/toparticle')
-api.add_resource(EditorsPickArticle, '/editorspick')
+api.add_resource(TopArticle, '/top')
+api.add_resource(EditorsPickArticle, '/editorspicks')

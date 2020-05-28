@@ -17,6 +17,7 @@ class Articles(db.Model):
     title = db.Column(db.String(255), nullable=False, default="")
     text = db.Column(db.Text, default="")
     image = db.Column(db.String(255), default="")
+    image_caption = db.Column(db.String(255), default="")
     topic = db.Column(db.Integer, db.ForeignKey('article_topics.id'))
     created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_at = db.Column(db.DateTime(timezone=True), onupdate=func.now())
@@ -32,6 +33,7 @@ class Articles(db.Model):
         "title": fields.String,
         "text": fields.String,
         "image": fields.String,
+        "image_caption": fields.String,
         "topic": fields.String,
         "created_at": fields.DateTime,
         "updated_at": fields.DateTime,
@@ -42,11 +44,12 @@ class Articles(db.Model):
     }
     
     
-    def __init__(self, user_id, title, text, image, topic, published, popular, top_article, editors_pick):
+    def __init__(self, user_id, title, text, image, image_caption, topic, published, popular, top_article, editors_pick):
         self.user_id = user_id
         self.title = title
         self.text = text
         self.image = image
+        self.image_caption = image_caption
         self.topic = topic
         self.published = published
         self.popular = popular
