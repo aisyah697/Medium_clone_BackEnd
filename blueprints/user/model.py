@@ -13,7 +13,7 @@ from sqlalchemy.orm import backref
 class Users(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    full_name = db.Column(db.String(255), nullable=False)
+    full_name = db.Column(db.String(255))
     email = db.Column(db.String(255), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     salt = db.Column(db.String(255))
@@ -44,10 +44,11 @@ class Users(db.Model):
         
     }
 
-    def __init__(self, full_name, email, password, status, salt):
+    def __init__(self, full_name, email, password, avatar, status, salt):
         self.full_name = full_name
         self.email = email
         self.password = password
+        self.avatar = avatar
         self.status = status
         self.salt = salt
 

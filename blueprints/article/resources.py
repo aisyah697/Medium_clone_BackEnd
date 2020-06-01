@@ -86,7 +86,6 @@ class ArticleResources(Resource):
         article = Articles(user_fields.id,
                            args['title'],
                            args['text'],
-                        #    args['image'],
                            filename,
                            args['image_caption'],
                            article_topic.id,

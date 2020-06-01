@@ -20,7 +20,7 @@ class UserResource(Resource):
     
     def post(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('full_name', location='form', required=True)
+        parser.add_argument('full_name', location='form')
         parser.add_argument('email', location='form', required=True)
         parser.add_argument('password', location='form', required=True)
         parser.add_argument('avatar', type=werkzeug.datastructures.FileStorage, location='files')
@@ -42,7 +42,13 @@ class UserResource(Resource):
         encoded = ('%s%s' % (args['password'], salt)).encode('utf-8')
         hash_pass = hashlib.sha512(encoded).hexdigest()
 
-        user = Users(args['full_name'], args['email'], hash_pass, filename, args['status'], salt)
+        user = Users(args['full_name'], 
+                     args['email'], 
+                     hash_pass, 
+                     filename, 
+                     args['status'], 
+                     salt)
+        
         db.session.add(user)
         db.session.commit()
 
@@ -120,35 +126,35 @@ class UserResource(Resource):
         return {'status': 'DELETED'}, 200
 
 
-# class UserList(Resource):
-#     def options(self):
-#         return {'status': 'ok'}, 200
+class UserList(Resource):
+    def options(self):
+        return {'status': 'ok'}, 200
 
-#     @internal_required
-#     def get(self):
-#         parser = reqparse.RequestParser()
-#         parser.add_argument('p', type=int, location='args', default=1)
-#         parser.add_argument('rp', type=int, location='args', default=25)
-#         parser.add_argument('orderby', location='args', help='invalid orderby value', choices=('full_name'))
-#         parser.add_argument('sort', location='args', help='invalid sort value', choices=('desc', 'asc'))
+    @internal_required
+    def get(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('p', type=int, location='args', default=1)
+        parser.add_argument('rp', type=int, location='args', default=25)
+        parser.add_argument('orderby', location='args', help='invalid orderby value', choices=('full_name'))
+        parser.add_argument('sort', location='args', help='invalid sort value', choices=('desc', 'asc'))
 
-#         args = parser.parse_args()
+        args = parser.parse_args()
 
-#         offset = (args['p'] * args['rp'] - args['rp'])
+        offset = (args['p'] * args['rp'] - args['rp'])
 
-#         qry = Users.query
-#         if args['orderby'] is not None:
-#             if args['orderby'] == 'full_name':
-#                 if args['sort'] == 'desc':
-#                     qry = qry.order_by(desc(Users.full_name))
-#                 else:
-#                     qry = qry.order_by(Users.full_name)
+        qry = Users.query
+        if args['orderby'] is not None:
+            if args['orderby'] == 'full_name':
+                if args['sort'] == 'desc':
+                    qry = qry.order_by(desc(Users.full_name))
+                else:
+                    qry = qry.order_by(Users.full_name)
 
-#         rows =[]
-#         for row in qry.limit(args['rp']).offset(offset).all():
-#             rows.append(marshal(row, Users.response_fields))
+        rows =[]
+        for row in qry.limit(args['rp']).offset(offset).all():
+            rows.append(marshal(row, Users.response_fields))
 
-#         return rows, 200
+        return rows, 200
 
-# api.add_resource(UserList, '', '')
 api.add_resource(UserResource, '', '/<id>')
+api.add_resource(UserList, '/list')

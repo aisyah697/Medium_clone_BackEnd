@@ -50,17 +50,6 @@ def before_request():
     if request.method == "GET" and path[1] == "img" : 
         return send_from_directory("."+app.config['UPLOAD_FOLDER'], path[2]), 200
 
-# @app.route('/upload')
-# def upload_file():
-#    return render_template('upload.html')
-	
-# @app.route('/uploader', methods = ['POST'])
-# def upload_file():
-#    if request.method == 'POST':
-#       f = request.files['file']
-#       f.save(secure_filename(f.filename))
-#       return 'file uploaded successfully'
-
 @app.before_request
 def before_request():
     if request.method != 'OPTIONS':  # <-- required
