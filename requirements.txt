@@ -7,4 +7,4 @@ flask-script
 flask-jwt-extended
 flask-requests
 pytest-cov
-werkzeug==0.16.0
+werkzeug==2.2.3
